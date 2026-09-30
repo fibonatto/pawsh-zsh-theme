@@ -152,7 +152,7 @@ function vi_mode_prompt {
 ## -----------------------------
 ## Prompt
 ## -----------------------------
-PROMPT='%(?:%F{#4ECDC4}ᓚᘏᗢ%f:%F{#EE4B4B}ᓚᘏᗢ%f) %(!.%{${fg[magenta]}%}#%{${reset_color}%}.)$(virtualenv_prompt)$(vi_mode_prompt)%{${fg[cyan]}%}${PWD:t}%{${reset_color}%} $(pawsh_git_info)'
+PROMPT='%(?:%F{#4ECDC4}>^ﻌ^<%f:%F{#EE4B4B}>^ﻌ^<%f) %(!.%{${fg[magenta]}%}#%{${reset_color}%}.)$(virtualenv_prompt)$(vi_mode_prompt)%{${fg[cyan]}%}${PWD:t}%{${reset_color}%} $(pawsh_git_info)'
 
 RPROMPT='$(git_complete_status)'
 
