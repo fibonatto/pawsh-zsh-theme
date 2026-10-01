@@ -1,179 +1,156 @@
 ## =============================
 ## Pawsh ZSH Theme
 ## =============================
+# =============================================================================
+# Pawsh — minimal, standalone zsh prompt (zsh >= 5.3, no framework required)
+#
+#   >ﻌ< project                                  (venv) [main +1 ~2 ?3 ↑1]
+#
+# Left:   cat face (yellow = last command ok, red = failed) + directory name.
+# Right:  vi mode, virtualenv and the whole git block, git wrapped in [ ].
+#
+# Install:   source /path/to/pawsh.zsh-theme    (from ~/.zshrc)
+# Colors:    named ANSI colors only (black..white), so everything follows the
+#            palette of your terminal theme. No hex / 256 / truecolor values.
+# Config:    PAWSH_FACE   prompt symbol (default: >ﻌ<)
+# =============================================================================
 
-autoload -Uz colors && colors
-autoload -Uz add-zsh-hook
+setopt prompt_subst transient_rprompt
+autoload -Uz add-zle-hook-widget
 
-## Git: prefix, suffix, dirty/clean
-ZSH_THEME_GIT_PROMPT_PREFIX="%{${fg_bold[blue]}%}git:(%{${fg[red]}%}"
-ZSH_THEME_GIT_PROMPT_SUFFIX="%{${reset_color}%} "
-ZSH_THEME_GIT_PROMPT_DIRTY="%{${fg[blue]}%}) %{${fg[yellow]}%}✗"
-ZSH_THEME_GIT_PROMPT_CLEAN="%{${fg[blue]}%})"
+(( ${+PAWSH_FACE} )) || typeset -g PAWSH_FACE='>ﻌ<'
 
-## -----------------------------
-## Fast git prompt (single git read)
-## -----------------------------
-function pawsh_git_info {
-  git rev-parse --is-inside-work-tree &>/dev/null || return
+# Prevent virtualenv's activate script from prepending its own "(env)" prefix.
+export VIRTUAL_ENV_DISABLE_PROMPT=1
 
-  local git_data
-  git_data=$(git status --porcelain=2 --branch 2>/dev/null)
+typeset -g _pawsh_face='' _pawsh_dir='' _pawsh_vi='' _pawsh_venv=''
+typeset -g _pawsh_git='' _pawsh_right=''
 
-  local branch=""
-  local ahead=0 behind=0
-  local staged=0 modified=0 untracked=0 deleted=0 conflicts=0
+# -----------------------------------------------------------------------------
+# Git: one `git status` call per prompt, rendered as a single [ ] block.
+#   [branch +N ~N -N ?N !N ↑N ↓N state]
+#   +N staged   ~N modified   -N deleted   ?N untracked   !N conflicts
+#   ↑N ahead    ↓N behind     merge / rebase / cherry-pick / bisect
+# Branch color: green = clean, yellow = dirty, red = conflicts.
+# -----------------------------------------------------------------------------
+_pawsh_git_update() {
+  _pawsh_git=''
 
-  while IFS= read -r line; do
-    case "$line" in
+  local out
+  out=$(command git --no-optional-locks status --porcelain=2 --branch 2>/dev/null) || return
 
-      "# branch.head "*)
-        branch=${line#"# branch.head "}
-      ;;
+  local line branch='' oid='' ab xy
+  local -i ahead=0 behind=0 staged=0 modified=0 deleted=0 untracked=0 conflicts=0
 
-      "# branch.ab "*)
-        local ab=${line#"# branch.ab +"}
-        ahead=${ab%% -*}
-        behind=${ab##* -}
-      ;;
-
-      "1 "*|"2 "*)
-        local xy=${line:2:2}
-
-        [[ ${xy:0:1} != "." ]] && ((staged++))
-        [[ ${xy:1:1} != "." ]] && ((modified++))
-
-        [[ $line == *" D."* || $line == *".D"* ]] && ((deleted++))
-      ;;
-
-      "? "*)
-        ((untracked++))
-      ;;
-
-      "u "*)
-        ((conflicts++))
-      ;;
-
+  for line in "${(@f)out}"; do
+    case $line in
+      '# branch.oid '*)  oid=${line#'# branch.oid '} ;;
+      '# branch.head '*) branch=${line#'# branch.head '} ;;
+      '# branch.ab '*)
+        ab=${line#'# branch.ab '}          # "+A -B"
+        ahead=${${ab%% *}#+}
+        behind=${${ab##* }#-}
+        ;;
+      '1 '*|'2 '*)
+        xy=${line[3,4]}
+        [[ ${xy[1]} != . ]] && (( ++staged ))
+        if [[ ${xy[2]} == D ]]; then
+          (( ++deleted ))
+        elif [[ ${xy[2]} != . ]]; then
+          (( ++modified ))
+        fi
+        ;;
+      '? '*) (( ++untracked )) ;;
+      'u '*) (( ++conflicts )) ;;
     esac
-  done <<< "$git_data"
+  done
 
-  local dirty="$ZSH_THEME_GIT_PROMPT_CLEAN"
+  local name=$branch color=green
+  [[ $branch == '(detached)' ]] && name=${oid[1,7]}
+  name=${name//\%/%%}
 
-  if (( staged > 0 || modified > 0 || untracked > 0 || conflicts > 0 )); then
-    dirty="$ZSH_THEME_GIT_PROMPT_DIRTY"
+  if (( conflicts )); then
+    color=red
+  elif (( staged || modified || deleted || untracked )); then
+    color=yellow
   fi
 
-  echo "${ZSH_THEME_GIT_PROMPT_PREFIX}${branch}${dirty}${ZSH_THEME_GIT_PROMPT_SUFFIX}"
+  local s=''
+  (( staged ))    && s+=" %F{green}+${staged}%f"
+  (( modified ))  && s+=" %F{yellow}~${modified}%f"
+  (( deleted ))   && s+=" %F{red}-${deleted}%f"
+  (( untracked )) && s+=" %F{magenta}?${untracked}%f"
+  (( ahead ))     && s+=" %F{cyan}↑${ahead}%f"
+  (( behind ))    && s+=" %F{red}↓${behind}%f"
+  (( conflicts )) && s+=" %B%F{red}!${conflicts}%f%b"
+
+  local gd
+  gd=$(command git rev-parse --git-dir 2>/dev/null)
+  if   [[ -d $gd/rebase-merge || -d $gd/rebase-apply ]]; then s+=" %F{yellow}rebase%f"
+  elif [[ -f $gd/MERGE_HEAD ]];       then s+=" %F{yellow}merge%f"
+  elif [[ -f $gd/CHERRY_PICK_HEAD ]]; then s+=" %F{yellow}cherry-pick%f"
+  elif [[ -f $gd/BISECT_LOG ]];       then s+=" %F{yellow}bisect%f"
+  fi
+
+  _pawsh_git="[%F{$color}${name}%f${s}]"
 }
 
-## -----------------------------
-## Detailed right-side git info
-## -----------------------------
-function git_complete_status {
-  git rev-parse --is-inside-work-tree &>/dev/null || return
-
-  local git_data
-  git_data=$(git status --porcelain=2 --branch 2>/dev/null)
-
-  local branch=""
-  local ahead=0 behind=0
-  local staged=0 modified=0 untracked=0 deleted=0 conflicts=0
-
-  while IFS= read -r line; do
-    case "$line" in
-
-      "# branch.head "*)
-        branch=${line#"# branch.head "}
-      ;;
-
-      "# branch.ab "*)
-        local ab=${line#"# branch.ab +"}
-        ahead=${ab%% -*}
-        behind=${ab##* -}
-      ;;
-
-      "1 "*|"2 "*)
-        local xy=${line:2:2}
-
-        [[ ${xy:0:1} != "." ]] && ((staged++))
-        [[ ${xy:1:1} != "." ]] && ((modified++))
-
-        [[ $line == *" D."* || $line == *".D"* ]] && ((deleted++))
-      ;;
-
-      "? "*)
-        ((untracked++))
-      ;;
-
-      "u "*)
-        ((conflicts++))
-      ;;
-
-    esac
-  done <<< "$git_data"
-
-  local info="%{${fg[blue]}%}$branch%{${reset_color}%}"
-
-  (( staged > 0 ))    && info+=" %{${fg[green]}%}+$staged%{${reset_color}%}"
-  (( modified > 0 ))  && info+=" %{${fg[yellow]}%}~$modified%{${reset_color}%}"
-  (( deleted > 0 ))   && info+=" %{${fg[red]}%}-$deleted%{${reset_color}%}"
-  (( untracked > 0 )) && info+=" %{${fg[magenta]}%}?$untracked%{${reset_color}%}"
-  (( ahead > 0 ))     && info+=" %{${fg[cyan]}%}↑$ahead%{${reset_color}%}"
-  (( behind > 0 ))    && info+=" %{${fg[red]}%}↓$behind%{${reset_color}%}"
-  (( conflicts > 0 )) && info+=" %{${fg_bold[red]}%}⚡$conflicts%{${reset_color}%}"
-
-  local git_dir
-  git_dir=$(git rev-parse --git-dir 2>/dev/null)
-
-  [[ -f "$git_dir/MERGE_HEAD" ]] && info+=" %{${fg[yellow]}%}[MERGE]%{${reset_color}%}"
-  [[ -d "$git_dir/rebase-merge" || -d "$git_dir/rebase-apply" ]] && info+=" %{${fg[yellow]}%}[REBASE]%{${reset_color}%}"
-  [[ -f "$git_dir/CHERRY_PICK_HEAD" ]] && info+=" %{${fg[yellow]}%}[CHERRY]%{${reset_color}%}"
-  [[ -f "$git_dir/BISECT_LOG" ]] && info+=" %{${fg[yellow]}%}[BISECT]%{${reset_color}%}"
-
-  echo "$info"
+# Joins the non-empty right-side pieces with single spaces.
+_pawsh_build_right() {
+  local -a parts
+  [[ -n $_pawsh_vi   ]] && parts+=$_pawsh_vi
+  [[ -n $_pawsh_venv ]] && parts+=$_pawsh_venv
+  [[ -n $_pawsh_git  ]] && parts+=$_pawsh_git
+  _pawsh_right=${(j: :)parts}
 }
 
-## -----------------------------
-## Directory
-## -----------------------------
-function pawsh_dir_prompt {
-  [[ "$PWD" == "$HOME" ]] && return
-  echo "%{${fg[cyan]}%}${PWD:t}%{${reset_color}%} "
+# -----------------------------------------------------------------------------
+# Runs before every prompt. Everything is computed here, so PROMPT itself only
+# expands variables (no subshells while redrawing).
+# -----------------------------------------------------------------------------
+_pawsh_precmd() {
+  local last=$?          # must stay first: exit status of the previous command
+
+  local color=yellow
+  (( last )) && color=red
+  _pawsh_face="%F{$color}${PAWSH_FACE}%f%(!. %B%F{red}#%f%b.) "
+
+  _pawsh_dir=''
+  local d=''
+  if [[ $PWD == / ]]; then
+    d=/
+  elif [[ $PWD != $HOME ]]; then
+    d=${PWD:t}
+  fi
+  [[ -n $d ]] && _pawsh_dir="%F{blue}${d//\%/%%}%f "
+
+  _pawsh_vi=''
+
+  _pawsh_venv=''
+  if [[ -n $VIRTUAL_ENV ]]; then
+    local v=${VIRTUAL_ENV:t}
+    [[ $v == (.venv|venv|env) ]] && v=${VIRTUAL_ENV:h:t}
+    _pawsh_venv="%F{magenta}(${v//\%/%%})%f"
+  fi
+
+  _pawsh_git_update
+  _pawsh_build_right
 }
 
-## -----------------------------
-## Virtualenv
-## -----------------------------
-function virtualenv_prompt {
-  [[ -n "$VIRTUAL_ENV" ]] || return
-  echo "%{${fg_bold[blue]}%}[${VIRTUAL_ENV:t}]%{${reset_color}%} "
-}
+# Run first so $? is still the user's last command.
+precmd_functions=(_pawsh_precmd ${precmd_functions:#_pawsh_precmd})
 
-## -----------------------------
-## Vi mode
-## -----------------------------
-function vi_mode_prompt {
-  [[ "$KEYMAP" == vicmd ]] || return
-  echo "%{${fg_bold[red]}%}[N]%{${reset_color}%} "
-}
-
-## -----------------------------
-## Prompt
-## -----------------------------
-PROMPT='%(?:%F{#4ECDC4}>ﻌ<%f:%F{#EE4B4B}>ﻌ<%f) %(!.%{${fg[magenta]}%}#%{${reset_color}%}.)$(virtualenv_prompt)$(vi_mode_prompt)$(pawsh_dir_prompt)$(pawsh_git_info)'
-
-RPROMPT='$(git_complete_status)'
-
-## -----------------------------
-## Vi mode refresh
-## -----------------------------
-function zle-keymap-select {
+# -----------------------------------------------------------------------------
+# Vi mode indicator (only shown in command mode)
+# -----------------------------------------------------------------------------
+_pawsh_keymap_select() {
+  _pawsh_vi=''
+  [[ $KEYMAP == vicmd ]] && _pawsh_vi='%B(N)%b'
+  _pawsh_build_right
   zle reset-prompt
 }
+add-zle-hook-widget keymap-select _pawsh_keymap_select
 
-function zle-line-init {
-  zle reset-prompt
-}
+PROMPT='${_pawsh_face}${_pawsh_dir}'
+RPROMPT='${_pawsh_right}'
 
-zle -N zle-keymap-select
-zle -N zle-line-init
