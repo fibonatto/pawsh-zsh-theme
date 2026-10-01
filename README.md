@@ -1,4 +1,4 @@
-# ᓚᘏᗢ Pawsh ZSH Theme
+# >ﻌ< Pawsh ZSH Theme
 
 Pawsh is a lightweight ZSH theme for plain zsh environments. It provides a minimal prompt centered on fast git status display, vi mode awareness, virtualenv visibility, and command result feedback.
 
@@ -8,7 +8,7 @@ Pawsh is a lightweight ZSH theme for plain zsh environments. It provides a minim
 
 # Features
 
-* Cat prompt (`ᓚᘏᗢ`) changes color according to command exit status:
+* Cat prompt (`>ﻌ<`) changes color according to command exit status:
 
   * cyan on success
   * red on failure
@@ -85,7 +85,7 @@ zcompile ~/.zshrc
 Left prompt:
 
 ```text
-ᓚᘏᗢ directory git:(branch)
+>ﻌ< directory git:(branch)
 ```
 
 Right prompt:
