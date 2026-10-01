@@ -1,4 +1,4 @@
-# >ﻌ< Pawsh ZSH Theme
+# Pawsh ZSH Theme >ﻌ< 
 
 Pawsh is a small ZSH prompt for people who just want their shell to look nice and tell them what is going on.
 
