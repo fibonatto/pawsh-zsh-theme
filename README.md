@@ -1,37 +1,86 @@
 # >ﻌ< Pawsh ZSH Theme
 
-Pawsh is a lightweight ZSH theme for plain zsh environments. It provides a minimal prompt centered on fast git status display, vi mode awareness, virtualenv visibility, and command result feedback.
+Pawsh is a small ZSH prompt for people who just want their shell to look nice and tell them what is going on.
+
+It shows the stuff that matters without turning your prompt into a dashboard:
+
+* command status
+* current directory
+* vi mode
+* Python virtualenv
+* git state
 
 ![Pawsh Theme Example](https://github.com/SergioBonatto/pawsh-zsh-theme/blob/main/assets/example.png?raw=true)
 
----
+## Features
 
-# Features
+### Prompt
 
-* Cat prompt (`>ﻌ<`) changes color according to command exit status:
+The cat changes color depending on the last command:
 
-  * cyan on success
-  * red on failure
-* Root indicator (`#`) in magenta
-* Current directory displayed in cyan
-* Active Python virtualenv shown when present
-* Vi mode indicator `[N]` in normal mode
-* Git branch information in prompt
-* Detailed repository state in right prompt:
+* yellow when it succeeds
+* red when it fails
 
-  * staged files
-  * modified files
-  * untracked files
-  * deleted files
-  * ahead / behind counters
-  * merge / rebase / cherry-pick / bisect states
-  * conflict detection
-* Prompt refresh on keymap change using ZLE hooks
-* No framework dependency
+The current directory is shown when you're not in `$HOME`.
 
----
+Root shells get a `#` indicator.
 
-# Installation
+### Git
+
+Git information lives on the right side of the prompt:
+
+```text
+[main +1 ~2 -1 ?3 ↑1 ↓2]
+```
+
+Where:
+
+* `+` staged files
+* `~` modified files
+* `-` deleted files
+* `?` untracked files
+* `↑` commits ahead
+* `↓` commits behind
+* `!` conflicts
+
+The branch is:
+
+* green when clean
+* yellow when dirty
+* red when conflicts exist
+
+Pawsh also detects:
+
+* merge
+* rebase
+* cherry-pick
+* bisect
+
+Git status is collected once per prompt refresh.
+
+### Vi mode
+
+Normal mode is shown as:
+
+```text
+(N)
+```
+
+It appears on the right side of the prompt and updates when the ZLE keymap changes.
+
+### Python virtualenv
+
+An active virtualenv is shown on the right:
+
+```text
+(main) (project)
+```
+
+The usual `.venv`, `venv`, and `env` names are replaced with their parent directory name when possible.
+
+Pawsh also disables the virtualenv activation script's own prompt modification, so you don't get two environment indicators.
+
+## Installation
 
 Clone the repository:
 
@@ -40,97 +89,65 @@ git clone https://github.com/SergioBonatto/pawsh-zsh-theme.git
 cd pawsh-zsh-theme
 ```
 
-Create a local themes directory:
+Create a themes directory:
 
 ```bash
 mkdir -p ~/.zsh/themes
 ```
 
-Copy the theme file:
+Copy the theme:
 
 ```bash
 cp pawsh.zsh-theme ~/.zsh/themes/
 ```
 
-Load the theme in `~/.zshrc`:
+Source it from `~/.zshrc`:
 
-```bash
+```zsh
 source ~/.zsh/themes/pawsh.zsh-theme
 ```
 
-Reload the shell:
+Then reload ZSH:
 
 ```bash
 source ~/.zshrc
 ```
 
-If you use zsh bytecode compilation:
+That's it.
 
-```bash
-zcompile ~/.zshrc
+## Customization
+
+The cat can be changed with `PAWSH_FACE`:
+
+```zsh
+PAWSH_FACE='ᓚᘏᗢ'
 ```
 
----
-
-# Requirements
-
-* `zsh`
-* `git`
-* Terminal with Unicode support
-
----
-
-# Prompt Structure
-
-Left prompt:
+The default is:
 
 ```text
->ﻌ< directory git:(branch)
+>ﻌ<
 ```
 
-Right prompt:
+Colors use ZSH's named ANSI colors, so they follow your terminal's color palette.
 
-```text
-branch +staged ~modified -deleted ?untracked ↑ahead ↓behind
-```
+## Requirements
 
----
+* ZSH 5.3+
+* Git
+* A terminal with Unicode support
 
-# Customization
+No framework is required.
 
-The theme uses these prompt variables:
+No Oh My Zsh.
 
-* `ZSH_THEME_GIT_PROMPT_PREFIX`
-* `ZSH_THEME_GIT_PROMPT_SUFFIX`
-* `ZSH_THEME_GIT_PROMPT_DIRTY`
-* `ZSH_THEME_GIT_PROMPT_CLEAN`
+No plugin manager.
 
-To change colors or symbols, edit:
+No prompt engine.
 
-```bash
-pawsh.zsh-theme
-```
+Just ZSH.
 
----
-
-# Notes
-
-Pawsh is designed for direct sourcing in plain zsh.
-
-It does not require:
-
-* Oh My Zsh
-* plugin managers
-* external prompt engines
-
----
-
-# Contributing
-
-Pull requests and issue reports are welcome.
-
----
-
-# License
+## License
 
 MIT
+
