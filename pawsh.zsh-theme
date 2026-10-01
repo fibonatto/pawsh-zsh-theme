@@ -1,38 +1,15 @@
-## =============================
 ## Pawsh ZSH Theme
-## =============================
-# =============================================================================
-# Pawsh — minimal, standalone zsh prompt (zsh >= 5.3, no framework required)
-#
-#   >ﻌ< project                                  (venv) [main +1 ~2 ?3 ↑1]
-#
-# Left:   cat face (yellow = last command ok, red = failed) + directory name.
-# Right:  vi mode, virtualenv and the whole git block, git wrapped in [ ].
-#
-# Install:   source /path/to/pawsh.zsh-theme    (from ~/.zshrc)
-# Colors:    named ANSI colors only (black..white), so everything follows the
-#            palette of your terminal theme. No hex / 256 / truecolor values.
-# Config:    PAWSH_FACE   prompt symbol (default: >ﻌ<)
-# =============================================================================
 
 setopt prompt_subst transient_rprompt
 autoload -Uz add-zle-hook-widget
 
 (( ${+PAWSH_FACE} )) || typeset -g PAWSH_FACE='>ﻌ<'
 
-# Prevent virtualenv's activate script from prepending its own "(env)" prefix.
 export VIRTUAL_ENV_DISABLE_PROMPT=1
 
 typeset -g _pawsh_face='' _pawsh_dir='' _pawsh_vi='' _pawsh_venv=''
 typeset -g _pawsh_git='' _pawsh_right=''
 
-# -----------------------------------------------------------------------------
-# Git: one `git status` call per prompt, rendered as a single [ ] block.
-#   [branch +N ~N -N ?N !N ↑N ↓N state]
-#   +N staged   ~N modified   -N deleted   ?N untracked   !N conflicts
-#   ↑N ahead    ↓N behind     merge / rebase / cherry-pick / bisect
-# Branch color: green = clean, yellow = dirty, red = conflicts.
-# -----------------------------------------------------------------------------
 _pawsh_git_update() {
   _pawsh_git=''
 
@@ -47,7 +24,7 @@ _pawsh_git_update() {
       '# branch.oid '*)  oid=${line#'# branch.oid '} ;;
       '# branch.head '*) branch=${line#'# branch.head '} ;;
       '# branch.ab '*)
-        ab=${line#'# branch.ab '}          # "+A -B"
+        ab=${line#'# branch.ab '}
         ahead=${${ab%% *}#+}
         behind=${${ab##* }#-}
         ;;
@@ -95,7 +72,6 @@ _pawsh_git_update() {
   _pawsh_git="[%F{$color}${name}%f${s}]"
 }
 
-# Joins the non-empty right-side pieces with single spaces.
 _pawsh_build_right() {
   local -a parts
   [[ -n $_pawsh_vi   ]] && parts+=$_pawsh_vi
@@ -104,12 +80,8 @@ _pawsh_build_right() {
   _pawsh_right=${(j: :)parts}
 }
 
-# -----------------------------------------------------------------------------
-# Runs before every prompt. Everything is computed here, so PROMPT itself only
-# expands variables (no subshells while redrawing).
-# -----------------------------------------------------------------------------
 _pawsh_precmd() {
-  local last=$?          # must stay first: exit status of the previous command
+  local last=$?
 
   local color=yellow
   (( last )) && color=red
@@ -137,12 +109,8 @@ _pawsh_precmd() {
   _pawsh_build_right
 }
 
-# Run first so $? is still the user's last command.
 precmd_functions=(_pawsh_precmd ${precmd_functions:#_pawsh_precmd})
 
-# -----------------------------------------------------------------------------
-# Vi mode indicator (only shown in command mode)
-# -----------------------------------------------------------------------------
 _pawsh_keymap_select() {
   _pawsh_vi=''
   [[ $KEYMAP == vicmd ]] && _pawsh_vi='%B(N)%b'
@@ -153,4 +121,3 @@ add-zle-hook-widget keymap-select _pawsh_keymap_select
 
 PROMPT='${_pawsh_face}${_pawsh_dir}'
 RPROMPT='${_pawsh_right}'
-
